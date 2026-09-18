@@ -74,3 +74,8 @@ Format per entry:
 - Blocker or note: real_search() in backend/main.py is a documented stub —
   swap it in once Phase 1 has a usable checkpoint. Frontend/backend contract
   won't need to change.
+
+## Day 6 - 2026-09-18
+- What I did: Phase 1 pretraining completed all 20 epochs (9360 steps) on Kaggle. Loss dropped from 4.15 (random-init baseline) to ~0.77 by the final epochs. Ran real held-out evaluation with evaluate.py against the final checkpoint (ckpt_epoch20_step9360.pt) on 2000 held-out image-caption pairs never seen during training.
+- Metric: Image-to-Text Retrieval - R@1: 22.95%, R@5: 55.70%, R@10: 71.00%. Text-to-Image Retrieval - R@1: 21.15%, R@5: 55.55%, R@10: 71.70%. Random chance baseline is ~0.05% R@1 - model is ~450x better than chance.
+- Blocker or note: Phase 1 is functionally complete. Next: implement real_search() in phase4_serve/backend/main.py using this checkpoint, swap USE_MOCK to False, and precompute image embeddings. Also worth starting Phase 2 in parallel.
