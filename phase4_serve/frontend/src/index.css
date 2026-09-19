@@ -318,3 +318,36 @@ html[data-theme="light"] .latency {
   font-size: 0.85rem;
   margin-bottom: 12px;
 }
+
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.results-toolbar .results-count {
+  margin-bottom: 0;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.toolbar-btn {
+  background: transparent;
+  border: 1px solid #333;
+  color: #b8c0cc;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.toolbar-btn:hover {
+  border-color: #4f7cff;
+  color: #e6e6e6;
+}

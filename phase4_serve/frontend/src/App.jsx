@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 
 const API_BASE = ''
 
@@ -10,6 +10,8 @@ const EXAMPLE_QUERIES = [
   'a mountain landscape',
 ]
 
+const searchCache = new Map()
+
 function ResultSkeleton() {
   return (
     <li className="result-card skeleton">
@@ -20,9 +22,26 @@ function ResultSkeleton() {
   )
 }
 
+function getUrlParams() {
+  const params = new URLSearchParams(window.location.search)
+  return {
+    q: params.get('q') || '',
+    k: Number(params.get('k')) || 5,
+  }
+}
+
+function setUrlParams(q, k) {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  params.set('k', String(k))
+  const newUrl = `${window.location.pathname}?${params.toString()}`
+  window.history.replaceState(null, '', newUrl)
+}
+
 export default function App() {
-  const [query, setQuery] = useState('')
-  const [topK, setTopK] = useState(5)
+  const initial = getUrlParams()
+  const [query, setQuery] = useState(initial.q)
+  const [topK, setTopK] = useState(initial.k)
   const [results, setResults] = useState([])
   const [isMock, setIsMock] = useState(null)
   const [latency, setLatency] = useState(null)
@@ -32,6 +51,7 @@ export default function App() {
   const [recentSearches, setRecentSearches] = useState([])
   const [theme, setTheme] = useState('dark')
   const [lastQuery, setLastQuery] = useState(null)
+  const [fromCache, setFromCache] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -49,14 +69,37 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeydown)
   }, [])
 
+  useEffect(() => {
+    if (initial.q) {
+      runSearch(initial.q, initial.k)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function toggleTheme() {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
   }
 
-  async function runSearch(q, k) {
+  const runSearch = useCallback(async (q, k) => {
     if (!q.trim()) return
     setLoading(true)
     setError(null)
+    setFromCache(false)
+    setUrlParams(q, k)
+
+    const cacheKey = `${q.toLowerCase().trim()}::${k}`
+    if (searchCache.has(cacheKey)) {
+      const cached = searchCache.get(cacheKey)
+      setResults(cached.results)
+      setIsMock(cached.mock)
+      setLatency(cached.latency_ms)
+      setLastQuery(q)
+      setFromCache(true)
+      setLoading(false)
+      setRecentSearches((prev) => [q, ...prev.filter((item) => item !== q)].slice(0, 5))
+      return
+    }
+
     try {
       const res = await fetch(`${API_BASE}/search`, {
         method: 'POST',
@@ -65,20 +108,18 @@ export default function App() {
       })
       if (!res.ok) throw new Error(`Server responded ${res.status}`)
       const data = await res.json()
+      searchCache.set(cacheKey, data)
       setResults(data.results)
       setIsMock(data.mock)
       setLatency(data.latency_ms)
       setLastQuery(q)
-      setRecentSearches((prev) => {
-        const next = [q, ...prev.filter((item) => item !== q)]
-        return next.slice(0, 5)
-      })
+      setRecentSearches((prev) => [q, ...prev.filter((item) => item !== q)].slice(0, 5))
     } catch (err) {
       setError(err.message || 'Search failed - is the backend running on :8000?')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   function handleSearch(e) {
     e.preventDefault()
@@ -107,6 +148,7 @@ export default function App() {
     setLatency(null)
     setError(null)
     setLastQuery(null)
+    setUrlParams('', topK)
   }
 
   async function handleCopy(result) {
@@ -117,6 +159,31 @@ export default function App() {
       setTimeout(() => setCopiedId(null), 1500)
     } catch {
     }
+  }
+
+  function handleExportJson() {
+    if (results.length === 0) return
+    const payload = {
+      query: lastQuery,
+      mock: isMock,
+      latency_ms: latency,
+      results,
+      exported_at: new Date().toISOString(),
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `lumina-search-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleShare() {
+    setUrlParams(query, topK)
+    navigator.clipboard?.writeText(window.location.href).catch(() => {})
+    setCopiedId('__share__')
+    setTimeout(() => setCopiedId(null), 1500)
   }
 
   return (
@@ -207,10 +274,21 @@ export default function App() {
       )}
 
       {!loading && !error && lastQuery && (
-        <p className="results-count">
-          {results.length} result{results.length !== 1 ? 's' : ''} for "{lastQuery}"
-          {latency !== null && ` - ${latency.toFixed(1)} ms`}
-        </p>
+        <div className="results-toolbar">
+          <p className="results-count">
+            {results.length} result{results.length !== 1 ? 's' : ''} for "{lastQuery}"
+            {latency !== null && ` - ${latency.toFixed(1)} ms`}
+            {fromCache && ' (cached)'}
+          </p>
+          <div className="toolbar-actions">
+            <button type="button" className="toolbar-btn" onClick={handleShare}>
+              {copiedId === '__share__' ? 'Link copied!' : 'Share'}
+            </button>
+            <button type="button" className="toolbar-btn" onClick={handleExportJson}>
+              Export JSON
+            </button>
+          </div>
+        </div>
       )}
 
       <ul className="results">
