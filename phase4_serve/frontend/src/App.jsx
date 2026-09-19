@@ -1,6 +1,10 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 
 const API_BASE = ''
+const LS_THEME_KEY = 'lumina_theme'
+const LS_RECENT_KEY = 'lumina_recent_searches'
+const LS_LATENCIES_KEY = 'lumina_latencies'
+const MAX_LATENCY_SAMPLES = 50
 
 const EXAMPLE_QUERIES = [
   'a dog in a park',
@@ -38,6 +42,28 @@ function setUrlParams(q, k) {
   window.history.replaceState(null, '', newUrl)
 }
 
+function loadFromStorage(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function saveToStorage(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+  }
+}
+
+function percentile(sorted, p) {
+  if (sorted.length === 0) return null
+  const idx = Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))
+  return sorted[idx]
+}
+
 export default function App() {
   const initial = getUrlParams()
   const [query, setQuery] = useState(initial.q)
@@ -48,15 +74,27 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
-  const [recentSearches, setRecentSearches] = useState([])
-  const [theme, setTheme] = useState('dark')
+  const [recentSearches, setRecentSearches] = useState(() => loadFromStorage(LS_RECENT_KEY, []))
+  const [theme, setTheme] = useState(() => loadFromStorage(LS_THEME_KEY, 'dark'))
   const [lastQuery, setLastQuery] = useState(null)
   const [fromCache, setFromCache] = useState(false)
+  const [latencies, setLatencies] = useState(() => loadFromStorage(LS_LATENCIES_KEY, []))
+  const [showStats, setShowStats] = useState(false)
   const inputRef = useRef(null)
+  const abortRef = useRef(null)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
+    saveToStorage(LS_THEME_KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    saveToStorage(LS_RECENT_KEY, recentSearches)
+  }, [recentSearches])
+
+  useEffect(() => {
+    saveToStorage(LS_LATENCIES_KEY, latencies)
+  }, [latencies])
 
   useEffect(() => {
     function handleKeydown(e) {
@@ -73,6 +111,9 @@ export default function App() {
     if (initial.q) {
       runSearch(initial.q, initial.k)
     }
+    return () => {
+      abortRef.current?.abort()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -82,6 +123,11 @@ export default function App() {
 
   const runSearch = useCallback(async (q, k) => {
     if (!q.trim()) return
+
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     setError(null)
     setFromCache(false)
@@ -105,6 +151,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q, top_k: k }),
+        signal: controller.signal,
       })
       if (!res.ok) throw new Error(`Server responded ${res.status}`)
       const data = await res.json()
@@ -114,10 +161,14 @@ export default function App() {
       setLatency(data.latency_ms)
       setLastQuery(q)
       setRecentSearches((prev) => [q, ...prev.filter((item) => item !== q)].slice(0, 5))
+      setLatencies((prev) => [...prev, data.latency_ms].slice(-MAX_LATENCY_SAMPLES))
     } catch (err) {
+      if (err.name === 'AbortError') return
       setError(err.message || 'Search failed - is the backend running on :8000?')
     } finally {
-      setLoading(false)
+      if (abortRef.current === controller) {
+        setLoading(false)
+      }
     }
   }, [])
 
@@ -149,6 +200,11 @@ export default function App() {
     setError(null)
     setLastQuery(null)
     setUrlParams('', topK)
+  }
+
+  function handleClearHistory() {
+    setRecentSearches([])
+    setLatencies([])
   }
 
   async function handleCopy(result) {
@@ -186,17 +242,51 @@ export default function App() {
     setTimeout(() => setCopiedId(null), 1500)
   }
 
+  const sortedLatencies = [...latencies].sort((a, b) => a - b)
+  const p50 = percentile(sortedLatencies, 50)
+  const p95 = percentile(sortedLatencies, 95)
+
   return (
     <div className="page">
       <header className="header">
         <div className="header-top">
           <h1>Lumina</h1>
-          <button type="button" className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
-            {theme === 'dark' ? 'Light' : 'Dark'}
-          </button>
+          <div className="header-actions">
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={() => setShowStats((s) => !s)}
+              title="Session stats"
+            >
+              Stats
+            </button>
+            <button type="button" className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
+          </div>
         </div>
         <p className="subtitle">Multimodal semantic search - Phase 4 serving demo</p>
       </header>
+
+      {showStats && (
+        <div className="stats-panel">
+          <div className="stats-row">
+            <span>Searches this session</span>
+            <strong>{latencies.length}</strong>
+          </div>
+          <div className="stats-row">
+            <span>p50 latency</span>
+            <strong>{p50 !== null ? `${p50.toFixed(1)} ms` : '-'}</strong>
+          </div>
+          <div className="stats-row">
+            <span>p95 latency</span>
+            <strong>{p95 !== null ? `${p95.toFixed(1)} ms` : '-'}</strong>
+          </div>
+          <button type="button" className="toolbar-btn" onClick={handleClearHistory}>
+            Clear history
+          </button>
+        </div>
+      )}
 
       {isMock === true && (
         <div className="mock-banner">
