@@ -296,3 +296,25 @@ html[data-theme="light"] .latency {
   border-color: #4f7cff;
   color: #e6e6e6;
 }
+
+.retry-btn {
+  background: transparent;
+  border: 1px solid #7a1e1e;
+  color: #f08080;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.retry-btn:hover {
+  background: #7a1e1e;
+  color: #fff;
+}
+
+.results-count {
+  color: #9aa0a6;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}

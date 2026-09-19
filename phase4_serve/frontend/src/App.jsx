@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 
 const API_BASE = ''
 
@@ -31,10 +31,23 @@ export default function App() {
   const [copiedId, setCopiedId] = useState(null)
   const [recentSearches, setRecentSearches] = useState([])
   const [theme, setTheme] = useState('dark')
+  const [lastQuery, setLastQuery] = useState(null)
+  const inputRef = useRef(null)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    function handleKeydown(e) {
+      if (e.key === '/' && document.activeElement !== inputRef.current) {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeydown)
+    return () => window.removeEventListener('keydown', handleKeydown)
+  }, [])
 
   function toggleTheme() {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
@@ -55,6 +68,7 @@ export default function App() {
       setResults(data.results)
       setIsMock(data.mock)
       setLatency(data.latency_ms)
+      setLastQuery(q)
       setRecentSearches((prev) => {
         const next = [q, ...prev.filter((item) => item !== q)]
         return next.slice(0, 5)
@@ -81,12 +95,18 @@ export default function App() {
     runSearch(q, topK)
   }
 
+  function handleRetry() {
+    if (lastQuery) runSearch(lastQuery, topK)
+    else if (query) runSearch(query, topK)
+  }
+
   function handleClear() {
     setQuery('')
     setResults([])
     setIsMock(null)
     setLatency(null)
     setError(null)
+    setLastQuery(null)
   }
 
   async function handleCopy(result) {
@@ -134,10 +154,11 @@ export default function App() {
 
       <form className="search-form" onSubmit={handleSearch}>
         <input
+          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Describe an image... e.g. 'a dog in a park'"
+          placeholder="Describe an image... e.g. 'a dog in a park'  (press / to focus)"
         />
         <select
           className="topk-select"
@@ -176,10 +197,20 @@ export default function App() {
         </div>
       )}
 
-      {error && <div className="error">{error}</div>}
+      {error && (
+        <div className="error">
+          {error}
+          <button type="button" className="retry-btn" onClick={handleRetry}>
+            Retry
+          </button>
+        </div>
+      )}
 
-      {latency !== null && !error && !loading && (
-        <p className="latency">Latency: {latency.toFixed(1)} ms</p>
+      {!loading && !error && lastQuery && (
+        <p className="results-count">
+          {results.length} result{results.length !== 1 ? 's' : ''} for "{lastQuery}"
+          {latency !== null && ` - ${latency.toFixed(1)} ms`}
+        </p>
       )}
 
       <ul className="results">
