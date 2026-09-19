@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useState, useEffect } from 'react'
 
 const API_BASE = ''
 
@@ -29,6 +29,16 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
+  const [recentSearches, setRecentSearches] = useState([])
+  const [theme, setTheme] = useState('dark')
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
+  function toggleTheme() {
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+  }
 
   async function runSearch(q, k) {
     if (!q.trim()) return
@@ -45,6 +55,10 @@ export default function App() {
       setResults(data.results)
       setIsMock(data.mock)
       setLatency(data.latency_ms)
+      setRecentSearches((prev) => {
+        const next = [q, ...prev.filter((item) => item !== q)]
+        return next.slice(0, 5)
+      })
     } catch (err) {
       setError(err.message || 'Search failed - is the backend running on :8000?')
     } finally {
@@ -62,6 +76,11 @@ export default function App() {
     runSearch(example, topK)
   }
 
+  function handleRecentClick(q) {
+    setQuery(q)
+    runSearch(q, topK)
+  }
+
   function handleClear() {
     setQuery('')
     setResults([])
@@ -77,14 +96,18 @@ export default function App() {
       setCopiedId(result.image_id)
       setTimeout(() => setCopiedId(null), 1500)
     } catch {
-      // clipboard API unavailable
     }
   }
 
   return (
     <div className="page">
       <header className="header">
-        <h1>Lumina</h1>
+        <div className="header-top">
+          <h1>Lumina</h1>
+          <button type="button" className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
+        </div>
         <p className="subtitle">Multimodal semantic search - Phase 4 serving demo</p>
       </header>
 
@@ -135,6 +158,23 @@ export default function App() {
           </button>
         )}
       </form>
+
+      {recentSearches.length > 0 && (
+        <div className="recent-searches">
+          <span className="recent-label">Recent:</span>
+          {recentSearches.map((q) => (
+            <button
+              key={q}
+              type="button"
+              className="recent-chip"
+              onClick={() => handleRecentClick(q)}
+              disabled={loading}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <div className="error">{error}</div>}
 

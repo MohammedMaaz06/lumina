@@ -227,3 +227,72 @@ body {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }
+
+html[data-theme="light"] body {
+  background: #f5f6f8;
+  color: #1a1d23;
+}
+
+html[data-theme="light"] .search-form input,
+html[data-theme="light"] .topk-select {
+  background: #ffffff;
+  border-color: #d0d4da;
+  color: #1a1d23;
+}
+
+html[data-theme="light"] .result-card,
+html[data-theme="light"] .example-chip {
+  background: #ffffff;
+  border-color: #d0d4da;
+}
+
+html[data-theme="light"] .result-id,
+html[data-theme="light"] .subtitle,
+html[data-theme="light"] .latency {
+  color: #6a7078;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: inherit;
+}
+
+.recent-searches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.recent-label {
+  font-size: 0.78rem;
+  color: #6a7078;
+  margin-right: 2px;
+}
+
+.recent-chip {
+  background: transparent;
+  border: 1px dashed #333;
+  color: #9aa0a6;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.recent-chip:hover:not(:disabled) {
+  border-color: #4f7cff;
+  color: #e6e6e6;
+}
