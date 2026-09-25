@@ -79,3 +79,8 @@ Format per entry:
 - What I did: Phase 1 pretraining completed all 20 epochs (9360 steps) on Kaggle. Loss dropped from 4.15 (random-init baseline) to ~0.77 by the final epochs. Ran real held-out evaluation with evaluate.py against the final checkpoint (ckpt_epoch20_step9360.pt) on 2000 held-out image-caption pairs never seen during training.
 - Metric: Image-to-Text Retrieval - R@1: 22.95%, R@5: 55.70%, R@10: 71.00%. Text-to-Image Retrieval - R@1: 21.15%, R@5: 55.55%, R@10: 71.70%. Random chance baseline is ~0.05% R@1 - model is ~450x better than chance.
 - Blocker or note: Phase 1 is functionally complete. Next: implement real_search() in phase4_serve/backend/main.py using this checkpoint, swap USE_MOCK to False, and precompute image embeddings. Also worth starting Phase 2 in parallel.
+
+## Day 8 - 2026-09-21
+- What I did: Cleaned up repo hygiene - node_modules and package-lock.json had accidentally been committed, removed from git tracking and added to .gitignore. Located the real ckpt_epoch20_step9360.pt checkpoint on Kaggle after a few tries (input file listing was inconsistent across session refreshes, resolved by re-running find fresh each time). Verified image_index.pt is valid - 500 real Flickr30k embeddings, correct shape.
+- Metric: N/A
+- Blocker or note: Copying ckpt_epoch20_step9360.pt to /kaggle/working/ for download, then need to set LUMINA_CHECKPOINT_PATH locally and verify real_search() returns real results end-to-end with the actual trained model.
