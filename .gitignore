@@ -8,3 +8,4 @@ __pycache__/
 .DS_Store
 node_modules/
 package-lock.json
+phase4_serve/backend/*.json
